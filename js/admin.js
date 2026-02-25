@@ -3,6 +3,8 @@ import { AppState } from './state.js';
 import { UI } from './ui.js';
 
 export class AdminController {
+    static currentRequest = null; // Armazena os dados da solicitação atual para o PDF
+
     static async initDashboard() {
         // Ao inicializar, lê os valores pré-preenchidos e faz a busca
         const cityInput = document.getElementById('admin-search-city');
@@ -172,10 +174,17 @@ export class AdminController {
     static async openDetails(id) {
         UI.openModal('details-modal');
         const body = document.getElementById('details-modal-body');
+        const btnPdf = document.getElementById('btn-download-pdf');
+        
+        if (btnPdf) btnPdf.classList.add('hidden'); // Oculta botão até carregar os dados
         body.innerHTML = '<div class="flex justify-center py-10"><div class="loader border-t-dark"></div></div>';
+        this.currentRequest = null;
         
         try {
             const req = await ApiService.getSolicitacaoById(id);
+            this.currentRequest = req;
+            
+            if (btnPdf) btnPdf.classList.remove('hidden'); // Mostra botão de PDF
             
             let anexosHTML = '<p class="text-sm text-gray-500">Nenhum anexo enviado.</p>';
             if(req.anexos && req.anexos.length > 0) {
@@ -239,6 +248,161 @@ export class AdminController {
 
         } catch(error) {
             body.innerHTML = `<div class="p-6 text-center text-red-500">Erro ao carregar detalhes da solicitação.</div>`;
+        }
+    }
+
+    static async downloadPDF() {
+        if (!this.currentRequest) return;
+        const req = this.currentRequest;
+        const btnPdf = document.getElementById('btn-download-pdf');
+        
+        // UI Loading State
+        const originalText = btnPdf.innerHTML;
+        UI.setButtonLoading('btn-download-pdf', true, '');
+
+        try {
+            // Busca os dados completos do Local antes de gerar o PDF
+            let localInfo = { nome: 'Não informado', cidade: '-', estado: '-' };
+            try {
+                localInfo = await ApiService.getLocalById(req.local_id);
+            } catch (e) {
+                console.warn("Não foi possível carregar os dados do local para o PDF.");
+            }
+
+            const safeOS = UI.escapeHTML(String(req.ordem_de_servico).padStart(4, '0'));
+            const dataHora = new Date();
+            
+            // DICA: Layout reestruturado. Uso de tabelas para a grade estrutural evita falhas no canvas.
+            // Os campos de texto longo (Descrição) agora ocupam linhas isoladas (div) para prevenir perdas de espaço/palavras grudadas.
+            const element = document.createElement('div');
+            element.innerHTML = `
+                <div style="padding: 40px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; max-width: 800px; margin: 0 auto; line-height: 1.5;">
+
+                    <!-- CABEÇALHO -->
+                    <table style="width: 100%; border-bottom: 3px solid #f97316; padding-bottom: 20px; margin-bottom: 30px; border-collapse: collapse;">
+                        <tr>
+                            <td style="width: 50%; vertical-align: middle;">
+                                <img src="${window.location.origin}/assets/logo.png" style="max-height: 65px; width: auto;" onerror="this.style.display='none'">
+                            </td>
+                            <td style="width: 50%; text-align: right; vertical-align: middle; font-size: 11px; color: #4b5563; line-height: 1.4;">
+                                <strong style="font-size: 12px; color: #111827;">ARCAIKA ENGENHARIA LTDA</strong><br>
+                                CNPJ: 42.907.720/0001-85<br>
+                                Al. Botafogo, 174 - Qd 77, L 11 - St. Central<br>
+                                Goiânia - GO, 74030-020<br>
+                                Tel: (62) 99616-4188
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!-- TÍTULO DA ORDEM DE SERVIÇO (Usando tabela para garantir flexbox fallback no PDF) -->
+                    <table style="width: 100%; background-color: #f97316; color: white; margin-bottom: 30px; border-collapse: collapse; border-radius: 6px;">
+                        <tr>
+                            <td style="padding: 15px 20px;">
+                                <h1 style="margin: 0; font-size: 22px; font-weight: bold; letter-spacing: 0.5px;">ORDEM&nbsp;DE&nbsp;SERVIÇO&nbsp;#${safeOS}</h1>
+                            </td>
+                            <td style="padding: 15px 20px; text-align: right; font-size: 14px;">
+                                <strong>Data:</strong> ${dataHora.toLocaleDateString('pt-BR')}
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!-- SEÇÃO 1 E 2: LOCAL E SOLICITANTE LADO A LADO -->
+                    <table style="width: 100%; margin-bottom: 30px; border-collapse: separate; border-spacing: 0;">
+                        <tr>
+                            <!-- Dados do Local -->
+                            <td style="width: 48%; vertical-align: top; padding: 18px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #f9fafb;">
+                                <h3 style="color: #ea580c; font-size: 12px; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #d1d5db; padding-bottom: 6px;"> Local</h3>
+                                <div style="margin-bottom: 10px;">
+                                    <span style="font-size: 11px; color: #6b7280; display: block; text-transform: uppercase;">Secretaria</span>
+                                    <strong style="font-size: 14px; color: #111827;">${UI.escapeHTML(localInfo.nome).toUpperCase()}</strong>
+                                </div>
+                                <div style="margin-bottom: 10px;">
+                                    <span style="font-size: 11px; color: #6b7280; display: block; text-transform: uppercase;">Cidade / UF</span>
+                                    <strong style="font-size: 14px; color: #111827;">${UI.escapeHTML(localInfo.cidade).toUpperCase()} - ${UI.escapeHTML(localInfo.estado).toUpperCase()}</strong>
+                                </div>
+                                <div>
+                                    <span style="font-size: 11px; color: #6b7280; display: block; text-transform: uppercase;">Unidade / Setor</span>
+                                    <strong style="font-size: 14px; color: #111827;">${req.nome_da_unidade ? UI.escapeHTML(req.nome_da_unidade).toUpperCase() : 'NÃO INFORMADO'}</strong>
+                                </div>
+                            </td>
+                            <!-- Espaçamento -->
+                            <td style="width: 4%;"></td>
+                            <!-- Dados do Solicitante -->
+                            <td style="width: 48%; vertical-align: top; padding: 18px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #f9fafb;">
+                                <h3 style="color: #ea580c; font-size: 12px; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #d1d5db; padding-bottom: 6px;"> Solicitante</h3>
+                                <div style="margin-bottom: 10px;">
+                                    <span style="font-size: 11px; color: #6b7280; display: block; text-transform: uppercase;">Nome Completo</span>
+                                    <strong style="font-size: 14px; color: #111827;">${UI.escapeHTML(req.nome).toUpperCase()}</strong>
+                                </div>
+                                <div style="margin-bottom: 10px;">
+                                    <span style="font-size: 11px; color: #6b7280; display: block; text-transform: uppercase;">E-mail</span>
+                                    <strong style="font-size: 14px; color: #111827;">${UI.escapeHTML(req.email)}</strong>
+                                </div>
+                                <div>
+                                    <span style="font-size: 11px; color: #6b7280; display: block; text-transform: uppercase;">Telefone</span>
+                                    <strong style="font-size: 14px; color: #111827;">${UI.escapeHTML(req.telefone)}</strong>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!-- SEÇÃO 3: DETALHES DO SERVIÇO (Bloco centralizado e isolado) -->
+                    <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; background-color: #ffffff; margin-bottom: 30px;">
+                        <h3 style="color: #ea580c; font-size: 13px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #f3f4f6; padding-bottom: 8px;"> Detalhes da Solicitação</h3>
+                        
+                        <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;">
+                            <tr>
+                                <td style="width: 70%; vertical-align: top; padding-right: 15px;">
+                                    <span style="font-size: 11px; color: #6b7280; display: block; text-transform: uppercase; margin-bottom: 3px;">Assunto</span>
+                                    <strong style="font-size: 16px; color: #111827;">${UI.escapeHTML(req.assunto).toUpperCase()}</strong>
+                                </td>
+                                <td style="width: 30%; vertical-align: top; text-align: right;">
+                                    <span style="font-size: 11px; color: #6b7280; display: block; text-transform: uppercase; margin-bottom: 6px;">Prioridade</span>
+                                    <strong style="font-size: 13px; padding: 6px 12px; border-radius: 4px; border: 1px solid currentColor; color: ${req.prioridade === 'alta' ? '#dc2626' : req.prioridade === 'média' ? '#d97706' : '#16a34a'}; background-color: ${req.prioridade === 'alta' ? '#fef2f2' : req.prioridade === 'média' ? '#fffbeb' : '#f0fdf4'};">${UI.escapeHTML(req.prioridade).toUpperCase()}</strong>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- DESCRIÇÃO (Retirado da tabela para consertar o bug do espaço e pre-wrap) -->
+                        <div style="margin-bottom: ${req.informacoes_adicionais ? '20px' : '0'};">
+                            <span style="font-size: 12px; font-weight: bold; color: #4b5563; display: block; text-transform: uppercase; margin-bottom: 8px; border-bottom: 1px solid #f3f4f6; padding-bottom: 4px;">Descrição do Problema / Serviço</span>
+                            <div style="font-size: 14px; color: #374151; white-space: pre-wrap; word-wrap: break-word; line-height: 1.6; background-color: #f9fafb; padding: 15px; border-radius: 6px; border: 1px solid #f3f4f6;">${UI.escapeHTML(req.descricao)}</div>
+                        </div>
+
+                        <!-- INFO ADICIONAIS -->
+                        ${req.informacoes_adicionais ? `
+                        <div>
+                            <span style="font-size: 12px; font-weight: bold; color: #4b5563; display: block; text-transform: uppercase; margin-bottom: 8px; border-bottom: 1px solid #f3f4f6; padding-bottom: 4px;">Informações Adicionais</span>
+                            <div style="font-size: 14px; color: #374151; white-space: pre-wrap; word-wrap: break-word; line-height: 1.6; background-color: #fffbeb; padding: 15px; border-radius: 6px; border: 1px solid #fef3c7;">${UI.escapeHTML(req.informacoes_adicionais)}</div>
+                        </div>` : ''}
+                    </div>
+
+                    <!-- RODAPÉ -->
+                    <div style="margin-top: 40px; text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                        Documento gerado eletronicamente pelo Sistema de Solicitações Arcaika Engenharia.<br>
+                        Gerado em ${dataHora.toLocaleDateString('pt-BR')} às ${dataHora.toLocaleTimeString('pt-BR')}.
+                    </div>
+                </div>
+            `;
+
+            // Configuração do motor PDF
+            const opt = {
+                margin:       10,
+                filename:     `OS_${safeOS}_Arcaika.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true }, // letterRendering ajuda em correções de espaço adicionais
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Gera e baixa o PDF
+            await html2pdf().set(opt).from(element).save();
+            
+            window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: "PDF gerado com sucesso!", type: 'success' }}));
+        } catch (error) {
+            console.error("Erro ao gerar PDF:", error);
+            window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: "Erro ao gerar o documento PDF.", type: 'error' }}));
+        } finally {
+            UI.setButtonLoading('btn-download-pdf', false, originalText);
         }
     }
 

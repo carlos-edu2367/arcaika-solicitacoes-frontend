@@ -1,6 +1,13 @@
+// Verifica se está rodando localmente (Sandbox) ou na nuvem (Produção)
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
+// Configurações Globais seladas para evitar sobreposição (Production Standard)
 export const CONFIG = Object.freeze({
-    API_BASE: 'https://arcaika-solicitacoes-backend-production.up.railway.app', 
+    // Alterna a URL da API automaticamente baseado no ambiente
+    API_BASE: isLocalhost 
+        ? 'http://localhost:8000' 
+        : 'https://arcaika-solicitacoes-backend-production.up.railway.app',
+        
     REQUEST_TIMEOUT_MS: 15000 // 15s de tolerância por request
 });
 

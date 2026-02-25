@@ -81,6 +81,7 @@ export class ClientController {
             nome: document.getElementById('req-nome').value.trim(),
             email: document.getElementById('req-email').value.trim(),
             telefone: document.getElementById('req-telefone').value.trim(),
+            nome_unidade: document.getElementById('req-unidade').value.trim(),
             assunto: document.getElementById('req-assunto').value.trim(),
             descricao: document.getElementById('req-descricao').value.trim(),
             prioridade: document.getElementById('req-prioridade').value,

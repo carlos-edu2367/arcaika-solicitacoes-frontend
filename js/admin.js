@@ -136,13 +136,14 @@ export class AdminController {
             el.className = "request-item border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer bg-white group";
             el.dataset.id = req.id; // Delegação de Eventos via DOM
             
-            const safeId = UI.escapeHTML(req.id.split('-')[0]);
+            // Formata a OS com zeros à esquerda (ex: 1 -> 0001, 42 -> 0042)
+            const safeOS = UI.escapeHTML(String(req.ordem_de_servico).padStart(4, '0'));
             const safeNome = UI.escapeHTML(req.nome);
             const safeAssunto = UI.escapeHTML(req.assunto);
 
             el.innerHTML = `
                 <div class="hidden md:grid grid-cols-12 gap-4 p-4 items-center">
-                    <div class="col-span-2 text-sm font-mono text-gray-500 truncate">${safeId}</div>
+                    <div class="col-span-2 text-sm font-mono text-gray-500 truncate">#${safeOS}</div>
                     <div class="col-span-3 text-sm font-medium text-dark truncate">${safeNome}</div>
                     <div class="col-span-4 text-sm text-gray-600 truncate">${safeAssunto}</div>
                     <div class="col-span-2">${UI.renderPriorityBadge(req.prioridade)}</div>
@@ -153,7 +154,7 @@ export class AdminController {
                 
                 <div class="md:hidden p-4 space-y-2">
                     <div class="flex justify-between items-start">
-                        <span class="text-xs font-mono text-gray-500">ID: ${safeId}</span>
+                        <span class="text-xs font-mono text-gray-500">OS: #${safeOS}</span>
                         ${UI.renderPriorityBadge(req.prioridade)}
                     </div>
                     <div class="font-medium text-dark text-sm">${safeAssunto}</div>
@@ -192,12 +193,15 @@ export class AdminController {
                 anexosHTML += `</div>`;
             }
 
+            // Destaca a OS formatada e lê do novo field nome_da_unidade
+            const safeOS = UI.escapeHTML(String(req.ordem_de_servico).padStart(4, '0'));
+
             body.innerHTML = `
                 <div class="space-y-6">
                     <div class="flex flex-wrap justify-between gap-4 border-b border-gray-100 pb-4">
                         <div>
-                            <p class="text-xs text-gray-500 font-mono uppercase tracking-wider mb-1">ID da Solicitação</p>
-                            <p class="font-medium text-dark">${UI.escapeHTML(req.id)}</p>
+                            <p class="text-xs text-gray-500 font-mono uppercase tracking-wider mb-1">Ordem de Serviço</p>
+                            <p class="font-medium text-dark text-lg">#${safeOS}</p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500 font-mono uppercase tracking-wider mb-1">Prioridade</p>
@@ -206,7 +210,8 @@ export class AdminController {
                     </div>
 
                     <div>
-                        <h4 class="text-lg font-bold text-dark mb-2">${UI.escapeHTML(req.assunto)}</h4>
+                        <h4 class="text-lg font-bold text-dark mb-1">${UI.escapeHTML(req.assunto)}</h4>
+                        ${req.nome_da_unidade ? `<p class="text-sm font-medium text-brand-600 mb-3 flex items-center gap-1"><i data-lucide="map-pin" class="w-4 h-4"></i> Unidade: ${UI.escapeHTML(req.nome_da_unidade)}</p>` : ''}
                         <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${UI.escapeHTML(req.descricao)}</div>
                         ${req.informacoes_adicionais ? `<p class="mt-2 text-sm text-gray-500"><span class="font-semibold text-gray-700">Adicional:</span> ${UI.escapeHTML(req.informacoes_adicionais)}</p>` : ''}
                     </div>

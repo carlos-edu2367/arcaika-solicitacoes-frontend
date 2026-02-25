@@ -1,6 +1,6 @@
-// Configurações Globais seladas para evitar sobreposição (Production Standard)
+
 export const CONFIG = Object.freeze({
-    API_BASE: 'http://localhost:8000', // URL Base da API Real
+    API_BASE: 'arcaika-solicitacoes-backend-production.up.railway.app', 
     REQUEST_TIMEOUT_MS: 15000 // 15s de tolerância por request
 });
 

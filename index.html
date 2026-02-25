@@ -54,8 +54,9 @@
     <!-- Header -->
     <header class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div id="brand-logo" class="flex items-center gap-2 cursor-pointer transition hover:opacity-80">
-                <div class="w-8 h-8 bg-brand-500 rounded flex items-center justify-center text-white font-bold">A</div>
+            <div id="brand-logo" class="flex items-center gap-3 cursor-pointer transition hover:opacity-80">
+                <!-- Imagem da logo injetada no lugar do ícone A -->
+                <img src="./assets/logo.png" alt="Arcaika Engenharia" class="h-8 w-auto object-contain" onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNCIgZmlsbD0iI2Y5NzMxNiIvPjx0ZXh0IHg9IjE2IiB5PSIyMSIgZm9udC1mYW1pbHk9ImFyaWFsIiBmb250LXNpemU9IjE4IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkE8L3RleHQ+PC9zdmc+'">
                 <span class="font-bold text-xl text-dark tracking-tight">Arcaika<span class="text-brand-500 font-normal">Eng</span></span>
             </div>
             
@@ -211,7 +212,7 @@
                 </div>
                 
                 <div class="flex items-center gap-3 w-full sm:w-auto">
-                    <button onclick="UI.openModal('create-local-modal')" class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 w-full sm:w-auto justify-center shadow-sm">
+                    <button id="btn-open-create-local" onclick="UI.openModal('create-local-modal')" class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 w-full sm:w-auto justify-center shadow-sm">
                         <i data-lucide="plus" class="w-4 h-4"></i> Novo Local
                     </button>
                 </div>

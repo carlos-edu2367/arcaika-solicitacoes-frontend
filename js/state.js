@@ -1,6 +1,6 @@
 
 export const CONFIG = Object.freeze({
-    API_BASE: 'arcaika-solicitacoes-backend-production.up.railway.app', 
+    API_BASE: 'https://arcaika-solicitacoes-backend-production.up.railway.app', 
     REQUEST_TIMEOUT_MS: 15000 // 15s de tolerância por request
 });
 

@@ -492,30 +492,47 @@ export class AdminController {
         }
     }
     
-    static copyLocalLink() {
+    static async copyLocalLink() {
         if (!AppState.admin.currentLocalId) {
             UI.showToast("Selecione um local primeiro.", "error");
             return;
         }
-        
+
         const url = new URL(window.location.origin + window.location.pathname);
         url.searchParams.set('local', AppState.admin.currentLocalId);
-        
-        navigator.clipboard.writeText(url.toString()).then(() => {
+        const textToCopy = url.toString();
+
+        try {
+            // Caminho moderno (Clipboard API)
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(textToCopy);
+            } else {
+                throw new Error("Clipboard API indisponível");
+            }
+
             UI.showToast("Link copiado para a área de transferência!", "success");
-        }).catch(err => {
-            // Fallback strategy for older browsers (or restricted IFrames)
-            const textArea = document.createElement("textarea");
-            textArea.value = url.toString();
-            document.body.appendChild(textArea);
-            textArea.select();
+
+        } catch (err) {
+            // Fallback legado
             try {
-                document.execCommand('copy');
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopy;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+
+                textArea.focus();
+                textArea.select();
+
+                document.execCommand("copy");
+
+                document.body.removeChild(textArea);
+
                 UI.showToast("Link copiado para a área de transferência!", "success");
-            } catch (err) {
+
+            } catch (fallbackErr) {
                 UI.showToast("O navegador bloqueou a cópia. Copie manualmente.", "error");
             }
-            document.body.removeChild(textArea);
-        });
+        }
     }
 }

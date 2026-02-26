@@ -108,8 +108,9 @@ export class AdminController {
     }
 
     static changeLocal(localId) {
+        if (!localId) return; // não reseta se vazio
+
         AppState.admin.currentLocalId = localId;
-        this.resetPagination();
         
         const btnCopyLink = document.getElementById('btn-copy-link');
         if(btnCopyLink) {

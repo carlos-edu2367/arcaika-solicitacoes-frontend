@@ -55,14 +55,28 @@ export class AdminController {
             }
         };
 
-        btnModeLocal.addEventListener('click', () => switchMode('local'));
-        btnModeStatus.addEventListener('click', () => switchMode('status'));
+        if(btnModeLocal) btnModeLocal.addEventListener('click', () => switchMode('local'));
+        if(btnModeStatus) btnModeStatus.addEventListener('click', () => switchMode('status'));
         
-        document.getElementById('admin-global-status').addEventListener('change', (e) => {
-            AppState.admin.currentStatus = e.target.value;
-            this.resetPagination();
-            this.triggerLoad();
-        });
+        const globalStatus = document.getElementById('admin-global-status');
+        if(globalStatus) {
+            globalStatus.addEventListener('change', (e) => {
+                AppState.admin.currentStatus = e.target.value;
+                this.resetPagination();
+                this.triggerLoad();
+            });
+        }
+
+        // CORREÇÃO: Garante que o select do local dispare a alteração e o botão seja funcional
+        const adminLocalSelect = document.getElementById('admin-local-select');
+        if(adminLocalSelect) {
+            adminLocalSelect.addEventListener('change', (e) => this.changeLocal(e.target.value));
+        }
+
+        const btnCopyLink = document.getElementById('btn-copy-link');
+        if(btnCopyLink) {
+            btnCopyLink.addEventListener('click', () => this.copyLocalLink());
+        }
     }
 
     // Adicionado parâmetro silentLoad para não atrapalhar o UI loading do modo Status no boot
@@ -99,7 +113,14 @@ export class AdminController {
         
         const btnCopyLink = document.getElementById('btn-copy-link');
         if(btnCopyLink) {
-            localId ? btnCopyLink.classList.remove('hidden') : btnCopyLink.classList.add('hidden');
+            // CORREÇÃO: Força o estilo "display" em caso de conflitos com classes do Tailwind
+            if (localId) {
+                btnCopyLink.classList.remove('hidden');
+                btnCopyLink.style.display = 'inline-flex';
+            } else {
+                btnCopyLink.classList.add('hidden');
+                btnCopyLink.style.display = 'none';
+            }
         }
         this.triggerLoad();
     }

@@ -16,9 +16,15 @@ export class ApiService {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
+                // Tratamento específico de Rate Limit (HTTP 429)
+                if (response.status === 429) {
+                    throw new Error("Muitas requisições. Por favor, aguarde um momento antes de tentar novamente.");
+                }
+                
                 if (response.status === 401 || response.status === 403) {
                     window.dispatchEvent(new Event('auth:unauthorized'));
                 }
+                
                 const errorData = await response.json().catch(() => ({}));
                 let errorMessage = `Erro do Servidor (${response.status})`;
                 
@@ -39,8 +45,13 @@ export class ApiService {
         }
     }
 
-    // --- AUTENTICAÇÃO ---
+    // --- AUTENTICAÇÃO E USUÁRIOS ---
     static async login(email, senha) { return this.request('/user/login', { method: 'POST', body: JSON.stringify({ email, senha }) }); }
+    
+    // Novo: Criar usuário para a Secretaria (Local User)
+    static async registerLocalUser(data) {
+        return this.request('/user/register/local_user', { method: 'POST', body: JSON.stringify(data) });
+    }
 
     // --- LOCAIS ---
     static async getLocais(city, state) { return this.request(`/requests/locais?city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}`); }
@@ -58,10 +69,14 @@ export class ApiService {
         return this.request(`/requests/local/solicitacao`, { method: 'POST', body: JSON.stringify(payload) });
     }
 
-    static async uploadAnexo(file, solicitacao_id) {
+    // Atualizado: Suporte a múltiplos arquivos e parâmetro 'classe'
+    static async uploadAnexo(files, solicitacao_id, classe = "cliente") {
         const formData = new FormData();
-        formData.append('file', file);
+        Array.from(files).forEach(file => {
+            formData.append('file', file);
+        });
         formData.append('solicitacao_id', solicitacao_id);
+        formData.append('classe', classe);
         return this.request('/requests/local/solicitacao/anexo', { method: 'POST', body: formData });
     }
 
@@ -73,12 +88,20 @@ export class ApiService {
         return this.request(`/requests/local/solicitacao?solicitacao_id=${id}`);
     }
 
-    // NOVAS ROTAS IMPLEMENTADAS
     static async getSolicitacoesByStatus(status, page, limit) {
         return this.request(`/requests/solicitacoes/status?status=${status}&page=${page}&limit=${limit}`);
     }
 
     static async updateSolicitacaoStatus(id, newStatus) {
         return this.request(`/requests/local/solicitacao/status?solicitacao_id=${id}&new_status=${newStatus}`, { method: 'PUT' });
+    }
+
+    // --- LOCAL USER (SECRETARIAS) ---
+    static async getLocalUserSolicitacoes(page, limit) {
+        return this.request(`/local_user/solicitacoes?page=${page}&limit=${limit}`);
+    }
+
+    static async getLocalUserSolicitacaoById(id) {
+        return this.request(`/local_user/solicitacao?solicitacao_id=${id}`);
     }
 }

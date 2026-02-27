@@ -4,21 +4,21 @@ import { ApiService } from './api.js';
 import { AuthController } from './auth.js';
 import { ClientController } from './client.js';
 import { AdminController } from './admin.js';
+import { LocalUserController } from './local_user.js'; 
 
-// Expondo controladores globalmente para compatibilidade com eventos inline no HTML (onclick, onchange)
 window.UI = UI;
 window.AdminController = AdminController;
 window.ClientController = ClientController;
 window.AuthController = AuthController;
+window.LocalUserController = LocalUserController; 
 
 const App = {
-    // Agora o init é async para permitir a busca do nome do local via link
     async init() {
         lucide.createIcons();
         const yearEl = document.getElementById('current-year');
         if (yearEl) yearEl.textContent = new Date().getFullYear();
         
-        this.setDefaultLocation(); // Define Senador Canedo - GO como padrão
+        this.setDefaultLocation(); 
         this.setupGlobalHandlers();
         this.bindDOMEvents();
         this.setupInfiniteScroll();
@@ -30,17 +30,12 @@ const App = {
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
             if(uuidRegex.test(localParam)) {
                 AppState.selectedLocalId = localParam;
-                
-                // Busca o nome real na nova rota que você adicionou
                 try {
                     const localInfo = await ApiService.getLocalById(localParam);
                     AppState.selectedLocalName = `${localInfo.nome} - ${localInfo.cidade}/${localInfo.estado}`;
                 } catch (error) {
-                    console.warn("Erro ao buscar detalhes do local via link direto:", error);
-                    // Fallback caso a API falhe ou o ID não exista mais
                     AppState.selectedLocalName = "Unidade Especial (Link Direto)";
                 }
-                
                 this.navigate('request');
             } else {
                 this.checkAuthAndRoute();
@@ -51,42 +46,38 @@ const App = {
     },
 
     setDefaultLocation() {
-        // Preenche os valores padrões para a busca do backend
         const cityInput = document.getElementById('search-city');
         const ufSelect = document.getElementById('search-uf');
-        
-        if (cityInput && !cityInput.value) {
-            cityInput.value = 'Senador Canedo';
-        }
-        if (ufSelect && !ufSelect.value) {
-            ufSelect.value = 'GO';
-        }
+        if (cityInput && !cityInput.value) cityInput.value = 'Senador Canedo';
+        if (ufSelect && !ufSelect.value) ufSelect.value = 'GO';
     },
 
     setupGlobalHandlers() {
-        // Event-Driven Architecture: Elimina importações/deps cruzadas severas.
         window.addEventListener('app:navigate', (e) => this.navigate(e.detail.view));
         window.addEventListener('app:toast', (e) => UI.showToast(e.detail.message, e.detail.type));
         window.addEventListener('auth:unauthorized', () => AuthController.logout());
         window.addEventListener('auth:state-change', () => this.checkAuthAndRoute());
         
-        // Error Boundary (Production Standard)
         window.addEventListener('unhandledrejection', (event) => {
             console.error("[CRITICAL] Unhandled Promise Rejection:", event.reason);
-            UI.showToast("Ocorreu um erro interno. Tente novamente.", "error");
+            UI.showToast("Ocorreu um erro interno de conexão.", "error");
         });
     },
 
     checkAuthAndRoute() {
         this.updateHeader();
-        
-        // Normaliza a Role para caixa alta. Previne bugs se o backend enviar 'admin' em minúsculo
         const userRole = AppState.user?.role ? String(AppState.user.role).toUpperCase() : null;
 
-        // Segurança estrita checando Role e Token existence
-        if(AppState.token && userRole === 'ADMIN') {
-            this.navigate('admin');
-            AdminController.initDashboard();
+        if (AppState.token) {
+            if (userRole === 'ADMIN') {
+                this.navigate('admin');
+                AdminController.initDashboard();
+            } else if (userRole === 'LOCAL_USER') {
+                this.navigate('local-user');
+                LocalUserController.initDashboard();
+            } else {
+                this.navigate('location');
+            }
         } else {
             this.navigate('location');
         }
@@ -101,8 +92,6 @@ const App = {
             adminControls.classList.remove('hidden');
             adminControls.classList.add('flex');
             btnLogin.classList.add('hidden');
-            
-            // Adicionado optional chaining no split para evitar erros se o nome vier vazio
             userNameDisplay.textContent = `Olá, ${UI.escapeHTML(AppState.user.nome?.split(' ')[0] || 'Usuário')}`;
         } else {
             adminControls.classList.add('hidden');
@@ -113,22 +102,18 @@ const App = {
 
     navigate(viewName) {
         if(viewName === 'home') viewName = 'location';
-        
-        // Bloqueio de Segurança para o Form
-        if(viewName === 'request' && !AppState.selectedLocalId) {
-            viewName = 'location';
-        }
+        if(viewName === 'request' && !AppState.selectedLocalId) viewName = 'location';
 
         document.getElementById('view-location').classList.add('hidden-view');
         document.getElementById('view-request').classList.add('hidden-view');
         document.getElementById('view-admin').classList.add('hidden-view');
+        const viewLocalUser = document.getElementById('view-local-user');
+        if (viewLocalUser) viewLocalUser.classList.add('hidden-view');
 
         AppState.currentView = viewName;
-
         const viewEl = document.getElementById(`view-${viewName}`);
         if(viewEl) {
             viewEl.classList.remove('hidden-view');
-            // Reboot nas animações para reflow suave
             viewEl.style.animation = 'none';
             viewEl.offsetHeight;
             viewEl.style.animation = null;
@@ -140,18 +125,19 @@ const App = {
     },
 
     bindDOMEvents() {
-        // Event Listeners Centralizados garantindo conformidade com CSP Security rules
         document.getElementById('brand-logo')?.addEventListener('click', () => this.navigate('home'));
         document.getElementById('btn-logout')?.addEventListener('click', () => AuthController.logout());
         document.getElementById('btn-login-modal')?.addEventListener('click', () => UI.openModal('login-modal'));
         document.getElementById('btn-close-login')?.addEventListener('click', () => UI.closeModal('login-modal'));
         document.getElementById('btn-close-details')?.addEventListener('click', () => UI.closeModal('details-modal'));
         document.getElementById('btn-close-create-local')?.addEventListener('click', () => UI.closeModal('create-local-modal'));
+        document.getElementById('btn-close-manage-local')?.addEventListener('click', () => UI.closeModal('manage-local-modal'));
 
         document.getElementById('form-login')?.addEventListener('submit', (e) => AuthController.handleLogin(e));
         document.getElementById('form-search-local')?.addEventListener('submit', (e) => ClientController.searchLocais(e));
         document.getElementById('form-request')?.addEventListener('submit', (e) => ClientController.submitRequest(e));
         document.getElementById('form-create-local')?.addEventListener('submit', (e) => AdminController.handleCreateLocal(e));
+        document.getElementById('form-create-local-user')?.addEventListener('submit', (e) => AdminController.handleCreateLocalUser(e));
 
         document.getElementById('btn-admin-search-locais')?.addEventListener('click', () => {
             const city = document.getElementById('admin-search-city')?.value;
@@ -159,13 +145,15 @@ const App = {
             AdminController.searchLocaisAdmin(city, state);
         });
 
-        document.getElementById('admin-local-select')?.addEventListener('change', (e) => AdminController.changeLocal(e.target.value));
+        // Binds dos Filtros Admin
+        document.getElementById('admin-global-status')?.addEventListener('change', () => AdminController.changeFilters());
+        document.getElementById('admin-local-select')?.addEventListener('change', () => AdminController.changeFilters());
+        
         document.getElementById('req-anexos')?.addEventListener('change', (e) => ClientController.updateFileList(e.target));
         
         const btnCopyLink = document.getElementById('btn-copy-link');
         if (btnCopyLink) btnCopyLink.addEventListener('click', () => AdminController.copyLocalLink());
 
-        // Event Delegation para listas longas (Production Performance Boost)
         document.getElementById('local-results')?.addEventListener('click', (e) => {
             const item = e.target.closest('.local-item');
             if (item) ClientController.selectLocal(item.dataset.id, item.dataset.name);
@@ -176,7 +164,6 @@ const App = {
             if (item) AdminController.openDetails(item.dataset.id);
         });
 
-        // Configuração segura e isolada de Drag & Drop
         this.setupDragAndDrop();
     },
 
@@ -205,17 +192,18 @@ const App = {
 
     setupInfiniteScroll() {
         const observer = new IntersectionObserver((entries) => {
-            if(entries[0].isIntersecting && AppState.currentView === 'admin') {
-                AdminController.loadRequests();
+            if(entries[0].isIntersecting) {
+                if(AppState.currentView === 'admin') AdminController.loadRequests();
+                if(AppState.currentView === 'local-user') LocalUserController.loadRequests();
             }
         }, { threshold: 0.1 });
         
-        const trigger = document.getElementById('load-more-trigger');
-        if(trigger) observer.observe(trigger);
+        const triggerAdmin = document.getElementById('load-more-trigger');
+        const triggerLocal = document.getElementById('local-user-load-more');
+        
+        if(triggerAdmin) observer.observe(triggerAdmin);
+        if(triggerLocal) observer.observe(triggerLocal);
     }
 };
 
-// Bootstrap nativo seguro aguardando o processamento do DOM
-document.addEventListener('DOMContentLoaded', () => {
-    App.init();
-});
+document.addEventListener('DOMContentLoaded', () => { App.init(); });

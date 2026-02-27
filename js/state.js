@@ -14,11 +14,18 @@ export const AppState = {
     token: localStorage.getItem('arcaika_token') || null,
     user: JSON.parse(localStorage.getItem('arcaika_user')) || null,
     
-    // MELHORIA UX: O estado inicial agora foca no que importa (Solicitações Novas/Pendentes)
+    // ESTADO ADMIN: Refatorado para suportar filtros combinados simultaneamente
     admin: {
-        filterMode: 'status', // Alterado de 'local' para 'status' como padrão
         currentLocalId: '',
-        currentStatus: 'criado', // Mantido 'criado' para mostrar pendentes
+        currentStatus: 'criado', // 'criado', 'em_andamento', 'concluido' ou '' (todos)
+        requests: [],
+        page: 1,
+        limit: 15,
+        hasMore: true,
+        isLoading: false
+    },
+
+    localUser: {
         requests: [],
         page: 1,
         limit: 15,

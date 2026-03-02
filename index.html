@@ -51,9 +51,15 @@
             </div>
             
             <div class="flex items-center gap-4">
-                <div id="admin-controls" class="hidden items-center gap-4">
+                <div id="admin-controls" class="hidden items-center gap-3 sm:gap-4">
                     <span class="text-sm font-bold text-slate-600 hidden sm:block" id="user-name-display"></span>
-                    <button id="btn-logout" class="text-sm font-bold text-slate-500 hover:text-red-600 transition">Sair</button>
+                    
+                    <!-- NOVO: Botão Painel -->
+                    <button id="btn-dashboard" class="text-sm font-bold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5" title="Ir para o Painel">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i> <span class="hidden sm:inline">Painel</span>
+                    </button>
+                    
+                    <button id="btn-logout" class="text-sm font-bold text-slate-500 hover:text-red-600 transition p-1.5 sm:p-0">Sair</button>
                 </div>
                 <button id="btn-login-modal" class="p-2 text-slate-400 hover:text-brand-500 transition rounded-full hover:bg-slate-50">
                     <i data-lucide="lock" class="w-5 h-5"></i>
@@ -99,7 +105,6 @@
 
         <!-- View: Request -->
         <section id="view-request" class="hidden-view fade-in pb-12">
-            <!-- (Mantido intacto o formulário de cliente original para poupar espaço vertical, já que não foi foco de refatoração, mas perfeitamente funcional na arquitetura) -->
              <div class="max-w-3xl mx-auto">
                 <div class="mb-6 flex items-center gap-4">
                     <div class="w-12 h-12 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 shadow-sm">

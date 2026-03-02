@@ -133,6 +133,9 @@ const App = {
         document.getElementById('btn-close-create-local')?.addEventListener('click', () => UI.closeModal('create-local-modal'));
         document.getElementById('btn-close-manage-local')?.addEventListener('click', () => UI.closeModal('manage-local-modal'));
 
+        // Evento do botão NOVO: Painel
+        document.getElementById('btn-dashboard')?.addEventListener('click', () => this.checkAuthAndRoute());
+
         document.getElementById('form-login')?.addEventListener('submit', (e) => AuthController.handleLogin(e));
         document.getElementById('form-search-local')?.addEventListener('submit', (e) => ClientController.searchLocais(e));
         document.getElementById('form-request')?.addEventListener('submit', (e) => ClientController.submitRequest(e));

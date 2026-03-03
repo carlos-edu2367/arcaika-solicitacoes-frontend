@@ -40,4 +40,42 @@ export class AuthController {
         window.dispatchEvent(new CustomEvent('app:navigate', { detail: { view: 'location' }}));
         window.dispatchEvent(new Event('auth:state-change'));
     }
+
+    static async handleChangePassword(e) {
+        e.preventDefault();
+        
+        const oldPassword = document.getElementById('change-senha-atual').value;
+        const newPassword = document.getElementById('change-senha-nova').value;
+        const confirmPassword = document.getElementById('change-senha-confirmar').value;
+
+        if (newPassword !== confirmPassword) {
+            return UI.showToast("As novas senhas não coincidem.", "error");
+        }
+
+        if (!AppState.user || !AppState.user.email || !AppState.user.role) {
+            return UI.showToast("Sessão inválida. Faça login novamente.", "error");
+        }
+
+        UI.setButtonLoading('btn-submit-change-password', true, 'Salvando...');
+        
+        try {
+            const payload = {
+                email: AppState.user.email,
+                role: AppState.user.role,
+                old_password: oldPassword,
+                new_password: newPassword
+            };
+
+            await ApiService.changePassword(payload);
+            
+            UI.showToast("Senha alterada com sucesso!", "success");
+            UI.closeModal('change-password-modal');
+            document.getElementById('form-change-password').reset();
+            
+        } catch (error) {
+            UI.showToast(error.message || "Erro ao trocar a senha.", "error");
+        } finally {
+            UI.setButtonLoading('btn-submit-change-password', false, '<i data-lucide="key" class="w-4 h-4"></i> Salvar Nova Senha');
+        }
+    }
 }

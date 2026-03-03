@@ -48,6 +48,12 @@ export class ApiService {
     // --- AUTENTICAÇÃO E USUÁRIOS ---
     static async login(email, senha) { return this.request('/user/login', { method: 'POST', body: JSON.stringify({ email, senha }) }); }
     
+    static async changePassword(data) {
+        return this.request('/user/change_password', { 
+            method: 'PUT', 
+            body: JSON.stringify(data) 
+        });
+    }
     // Novo: Criar usuário para a Secretaria (Local User)
     static async registerLocalUser(data) {
         return this.request('/user/register/local_user', { method: 'POST', body: JSON.stringify(data) });

@@ -133,6 +133,11 @@ const App = {
         document.getElementById('btn-close-create-local')?.addEventListener('click', () => UI.closeModal('create-local-modal'));
         document.getElementById('btn-close-manage-local')?.addEventListener('click', () => UI.closeModal('manage-local-modal'));
 
+        // NOVOS EVENTOS: Trocar Senha
+        document.getElementById('btn-change-password-modal')?.addEventListener('click', () => UI.openModal('change-password-modal'));
+        document.getElementById('btn-close-change-password')?.addEventListener('click', () => UI.closeModal('change-password-modal'));
+        document.getElementById('form-change-password')?.addEventListener('submit', (e) => AuthController.handleChangePassword(e));
+
         // Evento do botão NOVO: Painel
         document.getElementById('btn-dashboard')?.addEventListener('click', () => this.checkAuthAndRoute());
 

@@ -6,7 +6,6 @@ export class LocalUserController {
     static currentRequest = null;
 
     static async initDashboard() {
-        // Zera o estado ao entrar
         AppState.localUser.page = 1;
         AppState.localUser.requests = [];
         AppState.localUser.hasMore = true;
@@ -82,7 +81,6 @@ export class LocalUserController {
             el.className = "group border-b border-slate-100 hover:bg-slate-50/80 transition-all duration-200 cursor-pointer bg-white relative p-4 sm:p-5 flex flex-col gap-3";
             el.dataset.id = req.id;
             
-            // Evento para abrir detalhes
             el.onclick = () => this.openDetails(req.id);
             
             const safeOS = UI.escapeHTML(String(req.ordem_de_servico || req.ordem_servico || '0').padStart(4, '0'));
@@ -144,7 +142,6 @@ export class LocalUserController {
         }
     }
 
-    // Lógica de injeção visual para campos editáveis (inline editing)
     static renderEditableField(req, fieldKey, displayHtml, inputType = 'text') {
         const isEditable = (req.status === 'criado' || req.status === 'CRIADO');
         if (!isEditable) return displayHtml;
@@ -229,7 +226,6 @@ export class LocalUserController {
             this.currentRequest[fieldKey] = newValue;
             UI.showToast("Campo atualizado com sucesso!", "success");
             
-            // Sincroniza a lista e re-renderiza o modal para atualizar badges ou interfaces dependentes
             this.updateCardInList(this.currentRequest);
             this.openDetails(this.currentRequest.id);
 
@@ -252,7 +248,6 @@ export class LocalUserController {
         label.innerHTML = `<div class="loader-sm border-brand-500 border-t-transparent border-2 rounded-full w-4 h-4 animate-spin"></div> Enviando...`;
 
         try {
-            // Rota exata utilizada pela criação do cliente
             await ApiService.uploadAnexo(files, this.currentRequest.id, "cliente");
             UI.showToast("Anexos adicionados com sucesso!", "success");
             
@@ -267,13 +262,34 @@ export class LocalUserController {
         }
     }
 
+    static async deleteCurrentSolicitacao() {
+        if (!this.currentRequest) return;
+        
+        const confirmDelete = confirm("Tem certeza que deseja excluir esta Ordem de Serviço? Esta ação não pode ser desfeita.");
+        if (!confirmDelete) return;
+
+        try {
+            await ApiService.deleteLocalUserSolicitacao(this.currentRequest.id);
+            UI.showToast("Ordem de Serviço excluída com sucesso!", "success");
+            
+            const list = document.getElementById('local-user-requests-list');
+            if (list) {
+                const el = Array.from(list.children).find(c => c.dataset && c.dataset.id === this.currentRequest.id);
+                if (el) el.remove();
+            }
+            
+            UI.closeModal('details-modal');
+        } catch (error) {
+            UI.showToast(error.message || "Erro ao excluir a Ordem de Serviço.", "error");
+        }
+    }
+
     static async openDetails(id) {
         UI.openModal('details-modal');
         const body = document.getElementById('details-modal-body');
         const headerOs = document.getElementById('modal-header-os');
         const btnPdf = document.getElementById('btn-download-pdf');
         
-        // Sobrescreve a função de PDF do botão para usar a lógica deste controller
         btnPdf.onclick = () => this.downloadPDF();
         
         btnPdf.classList.add('hidden');
@@ -305,21 +321,11 @@ export class LocalUserController {
                 anexosHTML += `</div>`;
             }
 
-            // Exibição do Status de Acompanhamento
-            const statusBadge = UI.renderStatusBadge(req.status || 'criado');
-            const statusDisplay = `
-                <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm mb-6 flex flex-row items-center justify-between gap-4">
-                    <div>
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Status Atual</p>
-                        <p class="text-sm text-slate-500">Acompanhamento do chamado</p>
-                    </div>
-                    <div class="transform scale-110 origin-right">${statusBadge}</div>
-                </div>
-            `;
-
-            // Zona de Upload (Renderizada apenas se for possível editar)
+            const isEditable = (req.status === 'criado' || req.status === 'CRIADO');
             let editUploadZone = '';
-            if (req.status === 'criado' || req.status === 'CRIADO') {
+            let deleteBtnHtml = '';
+
+            if (isEditable) {
                 editUploadZone = `
                     <div class="mt-6 bg-brand-50/50 border border-brand-100 rounded-xl p-5">
                         <h4 class="text-sm font-bold text-brand-900 mb-3 flex items-center gap-2">
@@ -334,9 +340,28 @@ export class LocalUserController {
                         </div>
                     </div>
                 `;
+
+                deleteBtnHtml = `
+                    <button onclick="LocalUserController.deleteCurrentSolicitacao()" class="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 rounded-lg transition-colors border border-red-200 shadow-sm" title="Excluir O.S.">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> <span class="hidden sm:inline">Excluir</span>
+                    </button>
+                `;
             }
 
-            // Prepara a renderização dos campos com as respectivas validações de edição
+            const statusBadge = UI.renderStatusBadge(req.status || 'criado');
+            const statusDisplay = `
+                <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm mb-6 flex flex-row items-center justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Status Atual</p>
+                        <p class="text-sm text-slate-500">Acompanhamento do chamado</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        ${deleteBtnHtml}
+                        <div class="transform scale-110 origin-right">${statusBadge}</div>
+                    </div>
+                </div>
+            `;
+
             const safeAssunto = this.renderEditableField(req, 'assunto', `<h4 class="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">${UI.escapeHTML(req.assunto)}</h4>`, 'text');
             const safePrioridade = this.renderEditableField(req, 'prioridade', UI.renderPriorityBadge(req.prioridade), 'select-prioridade');
             
@@ -431,7 +456,6 @@ export class LocalUserController {
             const dateStr = dataHora.toLocaleDateString('pt-BR');
             const timeStr = dataHora.toLocaleTimeString('pt-BR', { hour12: false });
 
-            // Busca os detalhes da secretaria (local) via API caso não venha aninhado
             let localData = req.local;
             if (!localData && req.local_id) {
                 try {
@@ -441,15 +465,13 @@ export class LocalUserController {
                 }
             }
 
-            // Tratamento das propriedades do objeto para espelhar o backend
             const localNome = UI.escapeHTML((localData && localData.nome) ? localData.nome : 'Não informado');
             const localCidade = UI.escapeHTML((localData && localData.cidade) ? localData.cidade : '-');
             const localEstado = UI.escapeHTML((localData && localData.estado) ? localData.estado : '-');
             const unidadeNome = UI.escapeHTML(req.nome_da_unidade || 'NÃO INFORMADO');
 
-            // Cores da prioridade baseadas no script python
             let priText = String(req.prioridade || 'BAIXA').toUpperCase();
-            let priColorText = '#16A34A'; // Verde Padrão
+            let priColorText = '#16A34A'; 
             let priColorBg = '#F0FDF4';
             
             if (priText === 'ALTA') {
@@ -465,7 +487,6 @@ export class LocalUserController {
 
             const element = document.createElement('div');
             
-            // Montagem exata baseada nas dimensões (A4 180mm content width) e cores (ReportLab)
             element.innerHTML = `
                 <div style="width: 180mm; margin: 0 auto; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; box-sizing: border-box; background: white;">
 
@@ -511,7 +532,9 @@ export class LocalUserController {
                                 <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">UNIDADE / SETOR</div>
                                 <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 0;">${unidadeNome.toUpperCase()}</div>
                             </td>
-                            <td style="width: 4mm;"></td> <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 10px; vertical-align: top;">
+                            <td style="width: 4mm;"></td>
+                            
+                            <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 10px; vertical-align: top;">
                                 <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">SOLICITANTE</div>
                                 <div style="border-bottom: 1px solid #E5E7EB; margin: 4px 0 8px 0;"></div>
 

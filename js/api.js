@@ -114,4 +114,8 @@ export class ApiService {
     static async updateLocalUserSolicitacao(data) {
         return this.request(`/local_user/solicitacoes/editar`, { method: 'PUT', body: JSON.stringify(data) });
     }
+    
+    static async deleteLocalUserSolicitacao(id) {
+        return this.request(`/local_user/solicitacoes/deletar?solicitacao_id=${id}`, { method: 'DELETE' });
+    }
 }

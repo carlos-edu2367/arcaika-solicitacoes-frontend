@@ -110,4 +110,8 @@ export class ApiService {
     static async getLocalUserSolicitacaoById(id) {
         return this.request(`/local_user/solicitacao?solicitacao_id=${id}`);
     }
+
+    static async updateLocalUserSolicitacao(data) {
+        return this.request(`/local_user/solicitacoes/editar`, { method: 'PUT', body: JSON.stringify(data) });
+    }
 }

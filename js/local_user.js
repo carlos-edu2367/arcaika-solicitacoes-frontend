@@ -348,12 +348,29 @@ export class LocalUserController {
                 `;
             }
 
+            // Tratamento e exibição da data de criação
+            let dataCriacaoDisplay = '';
+            if (req.data_criacao) {
+                const d = new Date(req.data_criacao);
+                if (!isNaN(d.getTime())) {
+                    const dateStr = d.toLocaleDateString('pt-BR');
+                    const timeStr = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    dataCriacaoDisplay = `
+                        <div class="flex items-center gap-1.5 mt-2.5 text-xs font-medium text-slate-500 bg-slate-50 py-1.5 px-2.5 rounded-md border border-slate-100 w-fit">
+                            <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
+                            Aberto em: ${dateStr} às ${timeStr}
+                        </div>
+                    `;
+                }
+            }
+
             const statusBadge = UI.renderStatusBadge(req.status || 'criado');
             const statusDisplay = `
                 <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm mb-6 flex flex-row items-center justify-between gap-4">
-                    <div>
+                    <div class="flex flex-col">
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Status Atual</p>
                         <p class="text-sm text-slate-500">Acompanhamento do chamado</p>
+                        ${dataCriacaoDisplay}
                     </div>
                     <div class="flex items-center gap-4">
                         ${deleteBtnHtml}

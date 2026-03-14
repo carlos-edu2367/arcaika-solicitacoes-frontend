@@ -620,6 +620,27 @@ export class AdminController {
                         ` : ''}
                     </div>
 
+                    <div style="border: 1px solid #E5E7EB; background: white; padding: 15px; margin-bottom: 15px;">
+                        <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">ASSINATURAS</div>
+                        <div style="border-bottom: 2pt solid #F3F4F6; margin: 6px 0 10px 0;"></div>
+
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed;">
+                            <tr>
+                                <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 15px 10px; text-align: center; vertical-align: top;">
+                                    <div style="color: #6B7280; font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 60px;">GESTOR DO CONTRATO</div>
+                                    <div style="border-bottom: 1px solid #4B5563; width: 80%; margin: 0 auto 5px auto;"></div>
+                                    <div style="color: #6B7280; font-size: 8pt;">Assinatura</div>
+                                </td>
+                                <td style="width: 4mm;"></td>
+                                <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 15px 10px; text-align: center; vertical-align: top;">
+                                    <div style="color: #6B7280; font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 60px;">RESPONSÁVEL TÉCNICO</div>
+                                    <div style="border-bottom: 1px solid #4B5563; width: 80%; margin: 0 auto 5px auto;"></div>
+                                    <div style="color: #6B7280; font-size: 8pt;">Assinatura</div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
                     <!-- OBSERVAÇÕES -->
                     <div style="border: 1px solid #E5E7EB; background: white; padding: 15px; margin-bottom: 15px;">
                         <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">OBSERVAÇÕES</div>

@@ -469,56 +469,69 @@ export class AdminController {
     }
 
     static async downloadPDF() {
-        if (!this.currentRequest) return;
-        const req = this.currentRequest;
-        const originalText = document.getElementById('btn-download-pdf').innerHTML;
-        UI.setButtonLoading('btn-download-pdf', true, '');
+    if (!this.currentRequest) return;
+    const req = this.currentRequest;
+    const originalText = document.getElementById('btn-download-pdf').innerHTML;
+    UI.setButtonLoading('btn-download-pdf', true, '');
 
-        try {
-            const safeOS = UI.escapeHTML(String(req.ordem_de_servico || req.ordem_servico || '0').padStart(4, '0'));
-            const dataHora = new Date();
-            const dateStr = dataHora.toLocaleDateString('pt-BR');
-            const timeStr = dataHora.toLocaleTimeString('pt-BR', { hour12: false });
+    try {
+        const safeOS = UI.escapeHTML(String(req.ordem_de_servico || req.ordem_servico || '0').padStart(4, '0'));
+        const dataHora = new Date();
+        const dateStr = dataHora.toLocaleDateString('pt-BR');
+        const timeStr = dataHora.toLocaleTimeString('pt-BR', { hour12: false });
 
-            // Busca os detalhes da secretaria (local) via API caso não venha aninhado
-            let localData = req.local;
-            if (!localData && req.local_id) {
-                try {
-                    localData = await ApiService.getLocalById(req.local_id);
-                } catch (e) {
-                    console.warn("Aviso: Não foi possível buscar os detalhes do local na API.", e);
-                }
+        // Busca os detalhes da secretaria (local) via API caso não venha aninhado
+        let localData = req.local;
+        if (!localData && req.local_id) {
+            try {
+                localData = await ApiService.getLocalById(req.local_id);
+            } catch (e) {
+                console.warn("Aviso: Não foi possível buscar os detalhes do local na API.", e);
             }
+        }
 
-            // Tratamento das propriedades do objeto para espelhar o backend
-            const localNome = UI.escapeHTML((localData && localData.nome) ? localData.nome : 'Não informado');
-            const localCidade = UI.escapeHTML((localData && localData.cidade) ? localData.cidade : '-');
-            const localEstado = UI.escapeHTML((localData && localData.estado) ? localData.estado : '-');
-            const unidadeNome = UI.escapeHTML(req.nome_da_unidade || 'NÃO INFORMADO');
+        // Tratamento das propriedades do objeto
+        const localNome = UI.escapeHTML((localData && localData.nome) ? localData.nome : 'Não informado');
+        const localCidade = UI.escapeHTML((localData && localData.cidade) ? localData.cidade : '-');
+        const localEstado = UI.escapeHTML((localData && localData.estado) ? localData.estado : '-');
+        const unidadeNome = UI.escapeHTML(req.nome_da_unidade || 'NÃO INFORMADO');
 
-            // Cores da prioridade baseadas no script python
-            let priText = String(req.prioridade || 'BAIXA').toUpperCase();
-            let priColorText = '#16A34A'; // Verde Padrão
-            let priColorBg = '#F0FDF4';
-            
-            if (priText === 'ALTA') {
-                priColorText = '#DC2626'; 
-                priColorBg = '#FEF2F2';
-            } else if (priText === 'MÉDIA' || priText === 'MEDIA') {
-                priColorText = '#D97706'; 
-                priColorBg = '#FFFBEB';
-            }
+        // Cores da prioridade
+        let priText = String(req.prioridade || 'BAIXA').toUpperCase();
+        let priColorText = '#16A34A'; 
+        let priColorBg = '#F0FDF4';
+        
+        if (priText === 'ALTA') {
+            priColorText = '#DC2626'; 
+            priColorBg = '#FEF2F2';
+        } else if (priText === 'MÉDIA' || priText === 'MEDIA') {
+            priColorText = '#D97706'; 
+            priColorBg = '#FFFBEB';
+        }
 
-            const descHtml = UI.escapeHTML(req.descricao || '').replace(/\n/g, '<br/>');
-            const infoHtml = req.informacoes_adicionais ? UI.escapeHTML(req.informacoes_adicionais).replace(/\n/g, '<br/>') : '';
+        const descHtml = UI.escapeHTML(req.descricao || '').replace(/\n/g, '<br/>');
+        const infoHtml = req.informacoes_adicionais ? UI.escapeHTML(req.informacoes_adicionais).replace(/\n/g, '<br/>') : '';
 
-            const element = document.createElement('div');
-            
-            // Montagem exata baseada nas dimensões (A4 180mm content width) e cores (ReportLab)
-            element.innerHTML = `
-                <div style="width: 180mm; margin: 0 auto; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; box-sizing: border-box; background: white;">
+        const element = document.createElement('div');
+        
+        // CSS embutido: .avoid-break é o que impede de cortar as assinaturas ou blocos pela metade
+        const styleBlock = `
+            <style>
+                .pdf-container { width: 180mm; margin: 0 auto; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; box-sizing: border-box; background: white; }
+                .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+                .text-content { word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; line-height: 1.4; }
+                .label-title { color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px; }
+                .value-text { color: #111827; font-size: 11pt; font-weight: bold; }
+                .section-title { color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase; }
+            </style>
+        `;
+        
+        element.innerHTML = `
+            ${styleBlock}
+            <div class="pdf-container">
 
-                    <!-- CABEÇALHO -->
+                <!-- CABEÇALHO -->
+                <div class="avoid-break" style="margin-bottom: 15px;">
                     <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
                         <tr>
                             <td style="width: 50%; vertical-align: middle;">
@@ -533,10 +546,12 @@ export class AdminController {
                             </td>
                         </tr>
                     </table>
-                    <div style="border-bottom: 2pt solid #F97316; margin-bottom: 15px;"></div>
+                    <div style="border-bottom: 2pt solid #F97316;"></div>
+                </div>
 
-                    <!-- TÍTULO OS -->
-                    <table style="width: 100%; background-color: #F97316; color: white; border-collapse: collapse; margin-bottom: 15px;">
+                <!-- TÍTULO OS -->
+                <div class="avoid-break" style="margin-bottom: 15px;">
+                    <table style="width: 100%; background-color: #F97316; color: white; border-collapse: collapse;">
                         <tr>
                             <td style="padding: 10px 15px; font-size: 16pt; font-weight: bold;">
                                 ORDEM DE SERVIÇO #${safeOS}
@@ -546,137 +561,147 @@ export class AdminController {
                             </td>
                         </tr>
                     </table>
+                </div>
 
-                    <!-- SEÇÃO 1 E 2 (CARDS LOCAL E SOLICITANTE) -->
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; table-layout: fixed;">
+                <!-- SEÇÃO 1 E 2 (CARDS LOCAL E SOLICITANTE) -->
+                <div class="avoid-break" style="margin-bottom: 15px;">
+                    <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
                         <tr>
                             <!-- CARD LOCAL -->
                             <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 10px; vertical-align: top;">
-                                <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">LOCAL</div>
+                                <div class="section-title">LOCAL</div>
                                 <div style="border-bottom: 1px solid #E5E7EB; margin: 4px 0 8px 0;"></div>
 
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">SECRETARIA</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 8px;">${localNome.toUpperCase()}</div>
+                                <div class="label-title">SECRETARIA</div>
+                                <div class="value-text" style="margin-bottom: 8px;">${localNome.toUpperCase()}</div>
 
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">CIDADE / UF</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 8px;">${localCidade.toUpperCase()} - ${localEstado.toUpperCase()}</div>
+                                <div class="label-title">CIDADE / UF</div>
+                                <div class="value-text" style="margin-bottom: 8px;">${localCidade.toUpperCase()} - ${localEstado.toUpperCase()}</div>
 
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">UNIDADE / SETOR</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 0;">${unidadeNome.toUpperCase()}</div>
+                                <div class="label-title">UNIDADE / SETOR</div>
+                                <div class="value-text" style="margin-bottom: 0;">${unidadeNome.toUpperCase()}</div>
                             </td>
                             <td style="width: 4mm;"></td> <!-- Espaçamento -->
                             
                             <!-- CARD SOLICITANTE -->
                             <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 10px; vertical-align: top;">
-                                <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">SOLICITANTE</div>
+                                <div class="section-title">SOLICITANTE</div>
                                 <div style="border-bottom: 1px solid #E5E7EB; margin: 4px 0 8px 0;"></div>
 
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">NOME COMPLETO</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 8px;">${UI.escapeHTML(req.nome).toUpperCase()}</div>
+                                <div class="label-title">NOME COMPLETO</div>
+                                <div class="value-text" style="margin-bottom: 8px;">${UI.escapeHTML(req.nome).toUpperCase()}</div>
 
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">E-MAIL</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 8px;">${UI.escapeHTML(req.email)}</div>
+                                <div class="label-title">E-MAIL</div>
+                                <div class="value-text" style="margin-bottom: 8px;">${UI.escapeHTML(req.email)}</div>
 
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">TELEFONE</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 0;">${UI.escapeHTML(req.telefone)}</div>
+                                <div class="label-title">TELEFONE</div>
+                                <div class="value-text" style="margin-bottom: 0;">${UI.escapeHTML(req.telefone)}</div>
                             </td>
                         </tr>
                     </table>
+                </div>
 
-                    <!-- DETALHES DA SOLICITAÇÃO -->
-                    <div style="background: white; border: 1px solid #E5E7EB; padding: 15px; margin-bottom: 15px;">
-                        <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">DETALHES DA SOLICITAÇÃO</div>
+                <!-- DETALHES DA SOLICITAÇÃO -->
+                <div style="background: white; border: 1px solid #E5E7EB; padding: 15px; margin-bottom: 15px;">
+                    <div class="avoid-break">
+                        <div class="section-title">DETALHES DA SOLICITAÇÃO</div>
                         <div style="border-bottom: 2pt solid #F3F4F6; margin: 6px 0 10px 0;"></div>
 
                         <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
                             <tr>
                                 <td style="vertical-align: top;">
-                                    <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">ASSUNTO</div>
-                                    <div style="color: #111827; font-size: 11pt; font-weight: bold;">${UI.escapeHTML(req.assunto).toUpperCase()}</div>
+                                    <div class="label-title">ASSUNTO</div>
+                                    <div class="value-text">${UI.escapeHTML(req.assunto).toUpperCase()}</div>
                                 </td>
                                 <td style="vertical-align: top; text-align: right; width: 40mm;">
-                                    <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 4px;">PRIORIDADE</div>
+                                    <div class="label-title" style="margin-bottom: 4px;">PRIORIDADE</div>
                                     <div style="display: inline-block; padding: 4px; background: ${priColorBg}; color: ${priColorText}; border: 1pt solid ${priColorText}; font-size: 10pt; font-weight: bold; text-align: center; width: 35mm;">
                                         ${priText}
                                     </div>
                                 </td>
                             </tr>
                         </table>
+                    </div>
 
-                        <div style="color: #4B5563; font-size: 9pt; font-weight: bold; margin-bottom: 2px;">DESCRIÇÃO DO PROBLEMA / SERVIÇO</div>
+                    <div class="avoid-break">
+                        <div style="color: #4B5563; font-size: 9pt; font-weight: bold; margin-bottom: 2px; margin-top: 10px;">DESCRIÇÃO DO PROBLEMA / SERVIÇO</div>
                         <div style="border-bottom: 1px solid #F3F4F6; margin-bottom: 6px;"></div>
-                        <div style="background: #F9FAFB; border: 1px solid #F3F4F6; padding: 10px 12px; color: #374151; font-size: 10pt; line-height: 1.4;">
+                        <div class="text-content" style="background: #F9FAFB; border: 1px solid #F3F4F6; padding: 10px 12px; color: #374151; font-size: 10pt;">
                             ${descHtml}
                         </div>
+                    </div>
 
-                        ${infoHtml ? `
-                        <div style="margin-top: 15px;">
-                            <div style="color: #4B5563; font-size: 9pt; font-weight: bold; margin-bottom: 2px;">INFORMAÇÕES ADICIONAIS</div>
-                            <div style="border-bottom: 1px solid #F3F4F6; margin-bottom: 6px;"></div>
-                            <div style="background: #FFFBEB; border: 1px solid #FEF3C7; padding: 10px 12px; color: #374151; font-size: 10pt; line-height: 1.4;">
-                                ${infoHtml}
-                            </div>
+                    ${infoHtml ? `
+                    <div class="avoid-break" style="margin-top: 15px;">
+                        <div style="color: #4B5563; font-size: 9pt; font-weight: bold; margin-bottom: 2px;">INFORMAÇÕES ADICIONAIS</div>
+                        <div style="border-bottom: 1px solid #F3F4F6; margin-bottom: 6px;"></div>
+                        <div class="text-content" style="background: #FFFBEB; border: 1px solid #FEF3C7; padding: 10px 12px; color: #374151; font-size: 10pt;">
+                            ${infoHtml}
                         </div>
-                        ` : ''}
                     </div>
-
-                    <div style="border: 1px solid #E5E7EB; background: white; padding: 15px; margin-bottom: 15px;">
-                        <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">ASSINATURAS</div>
-                        <div style="border-bottom: 2pt solid #F3F4F6; margin: 6px 0 10px 0;"></div>
-
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed;">
-                            <tr>
-                                <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 15px 10px; text-align: center; vertical-align: top;">
-                                    <div style="color: #6B7280; font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 60px;">GESTOR DO CONTRATO</div>
-                                    <div style="border-bottom: 1px solid #4B5563; width: 80%; margin: 0 auto 5px auto;"></div>
-                                    <div style="color: #6B7280; font-size: 8pt;">Assinatura</div>
-                                </td>
-                                <td style="width: 4mm;"></td>
-                                <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 15px 10px; text-align: center; vertical-align: top;">
-                                    <div style="color: #6B7280; font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 60px;">RESPONSÁVEL TÉCNICO</div>
-                                    <div style="border-bottom: 1px solid #4B5563; width: 80%; margin: 0 auto 5px auto;"></div>
-                                    <div style="color: #6B7280; font-size: 8pt;">Assinatura</div>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <!-- OBSERVAÇÕES -->
-                    <div style="border: 1px solid #E5E7EB; background: white; padding: 15px; margin-bottom: 15px;">
-                        <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">OBSERVAÇÕES</div>
-                        <div style="border-bottom: 2pt solid #F3F4F6; margin: 6px 0 10px 0;"></div>
-                        <!-- Linhas pautadas -->
-                        <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
-                        <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
-                        <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
-                        <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
-                    </div>
-
-                    <!-- RODAPÉ -->
-                    <div style="border-top: 1px solid #E5E7EB; padding-top: 10px; text-align: center; color: #9CA3AF; font-size: 8pt; line-height: 1.3;">
-                        Documento gerado eletronicamente pelo Sistema de Solicitações Arcaika Engenharia.<br>
-                        Gerado em ${dateStr} às ${timeStr}.
-                    </div>
-
+                    ` : ''}
                 </div>
-            `;
 
-            // Configuração idêntica de margens do ReportLab (A4 com 15mm de margem por default)
-            const opt = { 
-                margin: 15, 
-                filename: `OS_${safeOS}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
-            };
-            
-            await html2pdf().set(opt).from(element).save();
-            UI.showToast("PDF gerado com sucesso!", "success");
+                <!-- ASSINATURAS -->
+                <div class="avoid-break" style="border: 1px solid #E5E7EB; background: white; padding: 15px; margin-bottom: 15px;">
+                    <div class="section-title">ASSINATURAS</div>
+                    <div style="border-bottom: 2pt solid #F3F4F6; margin: 6px 0 10px 0;"></div>
 
-        } catch (error) {
-            UI.showToast("Erro ao gerar o PDF.", "error");
-        } finally {
-            UI.setButtonLoading('btn-download-pdf', false, originalText);
-        }
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed;">
+                        <tr>
+                            <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 15px 10px; text-align: center; vertical-align: top;">
+                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 50px;">GESTOR DO CONTRATO</div>
+                                <div style="border-bottom: 1px solid #4B5563; width: 80%; margin: 0 auto 5px auto;"></div>
+                                <div style="color: #6B7280; font-size: 8pt;">Assinatura</div>
+                            </td>
+                            <td style="width: 4mm;"></td>
+                            <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 15px 10px; text-align: center; vertical-align: top;">
+                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 50px;">RESPONSÁVEL TÉCNICO</div>
+                                <div style="border-bottom: 1px solid #4B5563; width: 80%; margin: 0 auto 5px auto;"></div>
+                                <div style="color: #6B7280; font-size: 8pt;">Assinatura</div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- OBSERVAÇÕES -->
+                <div class="avoid-break" style="border: 1px solid #E5E7EB; background: white; padding: 15px; margin-bottom: 15px;">
+                    <div class="section-title">OBSERVAÇÕES</div>
+                    <div style="border-bottom: 2pt solid #F3F4F6; margin: 6px 0 10px 0;"></div>
+                    <!-- Linhas pautadas -->
+                    <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
+                    <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
+                    <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
+                </div>
+
+                <!-- RODAPÉ -->
+                <div class="avoid-break" style="border-top: 1px solid #E5E7EB; padding-top: 10px; text-align: center; color: #9CA3AF; font-size: 8pt; line-height: 1.3;">
+                    Documento gerado eletronicamente pelo Sistema de Solicitações Arcaika Engenharia.<br>
+                    Gerado em ${dateStr} às ${timeStr}.
+                </div>
+
+            </div>
+        `;
+
+        // Agora mantemos o pagebreak, mas deixamos o html2pdf lidar com o elemento virtual sozinho!
+        const opt = { 
+            margin: 15, 
+            filename: `OS_${safeOS}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            pagebreak: { mode: ['css', 'legacy'] }, // Reconhece os "avoid-break"
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
+        };
+        
+        await html2pdf().set(opt).from(element).save();
+        
+        UI.showToast("PDF gerado com sucesso!", "success");
+
+    } catch (error) {
+        console.error("Erro ao gerar PDF:", error);
+        UI.showToast("Erro ao gerar o PDF.", "error");
+    } finally {
+        UI.setButtonLoading('btn-download-pdf', false, originalText);
     }
+}
 }

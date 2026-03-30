@@ -465,195 +465,273 @@ export class LocalUserController {
         if (!this.currentRequest) return;
         const req = this.currentRequest;
         const originalText = document.getElementById('btn-download-pdf').innerHTML;
-        UI.setButtonLoading('btn-download-pdf', true, '');
+        UI.setButtonLoading('btn-download-pdf', true, 'Preparando PDF...');
 
         try {
-            const safeOS = UI.escapeHTML(String(req.ordem_de_servico || req.ordem_servico || '0').padStart(4, '0'));
+            // --- 1. CARREGAMENTO DINÂMICO DO PDFMAKE ---
+            const loadPdfMake = async () => {
+                if (window.pdfMake) return;
+                return new Promise((resolve, reject) => {
+                    const script1 = document.createElement('script');
+                    script1.src = "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js";
+                    script1.onload = () => {
+                        const script2 = document.createElement('script');
+                        script2.src = "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.min.js";
+                        script2.onload = resolve;
+                        document.head.appendChild(script2);
+                    };
+                    script1.onerror = reject;
+                    document.head.appendChild(script1);
+                });
+            };
+            await loadPdfMake();
+
+            // Helper para tentar converter a logo em Base64
+            const getLogoBase64 = async () => {
+                try {
+                    const res = await fetch(`${window.location.origin}/assets/logo.png`);
+                    if (!res.ok) return null;
+                    const blob = await res.blob();
+                    return new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = () => resolve(null);
+                        reader.readAsDataURL(blob);
+                    });
+                } catch (e) {
+                    return null;
+                }
+            };
+
+            const logoData = await getLogoBase64();
+
+            // --- 2. PREPARAÇÃO DOS DADOS ---
+            const safeOS = String(req.ordem_de_servico || req.ordem_servico || '0').padStart(4, '0');
             const dataHora = new Date();
             const dateStr = dataHora.toLocaleDateString('pt-BR');
             const timeStr = dataHora.toLocaleTimeString('pt-BR', { hour12: false });
 
             let localData = req.local;
             if (!localData && req.local_id) {
-                try {
-                    localData = await ApiService.getLocalById(req.local_id);
-                } catch (e) {
-                    console.warn("Aviso: Não foi possível buscar os detalhes do local na API.", e);
-                }
+                try { localData = await ApiService.getLocalById(req.local_id); } 
+                catch (e) { console.warn("Aviso: Não buscou local", e); }
             }
 
-            const localNome = UI.escapeHTML((localData && localData.nome) ? localData.nome : 'Não informado');
-            const localCidade = UI.escapeHTML((localData && localData.cidade) ? localData.cidade : '-');
-            const localEstado = UI.escapeHTML((localData && localData.estado) ? localData.estado : '-');
-            const unidadeNome = UI.escapeHTML(req.nome_da_unidade || 'NÃO INFORMADO');
+            const localNome = (localData && localData.nome) ? localData.nome : 'Não informado';
+            const localCidade = (localData && localData.cidade) ? localData.cidade : '-';
+            const localEstado = (localData && localData.estado) ? localData.estado : '-';
+            const unidadeNome = req.nome_da_unidade || 'NÃO INFORMADO';
 
             let priText = String(req.prioridade || 'BAIXA').toUpperCase();
             let priColorText = '#16A34A'; 
             let priColorBg = '#F0FDF4';
             
             if (priText === 'ALTA') {
-                priColorText = '#DC2626'; 
-                priColorBg = '#FEF2F2';
+                priColorText = '#DC2626'; priColorBg = '#FEF2F2';
             } else if (priText === 'MÉDIA' || priText === 'MEDIA') {
-                priColorText = '#D97706'; 
-                priColorBg = '#FFFBEB';
+                priColorText = '#D97706'; priColorBg = '#FFFBEB';
             }
 
-            const descHtml = UI.escapeHTML(req.descricao || '').replace(/\n/g, '<br/>');
-            const infoHtml = req.informacoes_adicionais ? UI.escapeHTML(req.informacoes_adicionais).replace(/\n/g, '<br/>') : '';
-
-            const element = document.createElement('div');
-            
-            element.innerHTML = `
-                <div style="width: 180mm; margin: 0 auto; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; box-sizing: border-box; background: white;">
-
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
-                        <tr>
-                            <td style="width: 50%; vertical-align: middle;">
-                                <img src="${window.location.origin}/assets/logo.png" style="max-height: 20mm; max-width: 50mm;" onerror="this.outerHTML='<b style=\\'font-size:11pt; color:#111827;\\'>ARCAIKA ENGENHARIA</b>'">
-                            </td>
-                            <td style="width: 50%; text-align: right; vertical-align: middle; font-size: 9pt; color: #4B5563; line-height: 1.3;">
-                                <strong style="color: #111827;">ARCAIKA ENGENHARIA LTDA</strong><br>
-                                CNPJ: 42.907.720/0001-85<br>
-                                Al. Botafogo, 174 - Qd 77, L 11 - St. Central<br>
-                                Goiânia - GO, 74030-020<br>
-                                Tel: (62) 99616-4188
-                            </td>
-                        </tr>
-                    </table>
-                    <div style="border-bottom: 2pt solid #F97316; margin-bottom: 15px;"></div>
-
-                    <table style="width: 100%; background-color: #F97316; color: white; border-collapse: collapse; margin-bottom: 15px;">
-                        <tr>
-                            <td style="padding: 10px 15px; font-size: 16pt; font-weight: bold;">
-                                ORDEM DE SERVIÇO #${safeOS}
-                            </td>
-                            <td style="padding: 10px 15px; text-align: right; font-size: 10pt;">
-                                <b>Data:</b> ${dateStr}
-                            </td>
-                        </tr>
-                    </table>
-
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; table-layout: fixed;">
-                        <tr>
-                            <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 10px; vertical-align: top;">
-                                <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">LOCAL</div>
-                                <div style="border-bottom: 1px solid #E5E7EB; margin: 4px 0 8px 0;"></div>
-
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">SECRETARIA</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 8px;">${localNome.toUpperCase()}</div>
-
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">CIDADE / UF</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 8px;">${localCidade.toUpperCase()} - ${localEstado.toUpperCase()}</div>
-
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">UNIDADE / SETOR</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 0;">${unidadeNome.toUpperCase()}</div>
-                            </td>
-                            <td style="width: 4mm;"></td>
-                            
-                            <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 10px; vertical-align: top;">
-                                <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">SOLICITANTE</div>
-                                <div style="border-bottom: 1px solid #E5E7EB; margin: 4px 0 8px 0;"></div>
-
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">NOME COMPLETO</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 8px;">${UI.escapeHTML(req.nome).toUpperCase()}</div>
-
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">E-MAIL</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 8px;">${UI.escapeHTML(req.email)}</div>
-
-                                <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">TELEFONE</div>
-                                <div style="color: #111827; font-size: 11pt; font-weight: bold; margin-bottom: 0;">${UI.escapeHTML(req.telefone)}</div>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <div style="background: white; border: 1px solid #E5E7EB; padding: 15px; margin-bottom: 15px;">
-                        <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">DETALHES DA SOLICITAÇÃO</div>
-                        <div style="border-bottom: 2pt solid #F3F4F6; margin: 6px 0 10px 0;"></div>
-
-                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
-                            <tr>
-                                <td style="vertical-align: top;">
-                                    <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 2px;">ASSUNTO</div>
-                                    <div style="color: #111827; font-size: 11pt; font-weight: bold;">${UI.escapeHTML(req.assunto).toUpperCase()}</div>
-                                </td>
-                                <td style="vertical-align: top; text-align: right; width: 40mm;">
-                                    <div style="color: #6B7280; font-size: 8pt; font-weight: bold; margin-bottom: 4px;">PRIORIDADE</div>
-                                    <div style="display: inline-block; padding: 4px; background: ${priColorBg}; color: ${priColorText}; border: 1pt solid ${priColorText}; font-size: 10pt; font-weight: bold; text-align: center; width: 35mm;">
-                                        ${priText}
-                                    </div>
-                                </td>
-                            </tr>
-                        </table>
-
-                        <div style="color: #4B5563; font-size: 9pt; font-weight: bold; margin-bottom: 2px;">DESCRIÇÃO DO PROBLEMA / SERVIÇO</div>
-                        <div style="border-bottom: 1px solid #F3F4F6; margin-bottom: 6px;"></div>
-                        <div style="background: #F9FAFB; border: 1px solid #F3F4F6; padding: 10px 12px; color: #374151; font-size: 10pt; line-height: 1.4;">
-                            ${descHtml}
-                        </div>
-
-                        ${infoHtml ? `
-                        <div style="margin-top: 15px;">
-                            <div style="color: #4B5563; font-size: 9pt; font-weight: bold; margin-bottom: 2px;">INFORMAÇÕES ADICIONAIS</div>
-                            <div style="border-bottom: 1px solid #F3F4F6; margin-bottom: 6px;"></div>
-                            <div style="background: #FFFBEB; border: 1px solid #FEF3C7; padding: 10px 12px; color: #374151; font-size: 10pt; line-height: 1.4;">
-                                ${infoHtml}
-                            </div>
-                        </div>
-                        ` : ''}
-                    </div>
-
-                    <div style="border: 1px solid #E5E7EB; background: white; padding: 15px; margin-bottom: 15px;">
-                        <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">ASSINATURAS</div>
-                        <div style="border-bottom: 2pt solid #F3F4F6; margin: 6px 0 10px 0;"></div>
-
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed;">
-                            <tr>
-                                <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 15px 10px; text-align: center; vertical-align: top;">
-                                    <div style="color: #6B7280; font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 60px;">GESTOR DO CONTRATO</div>
-                                    <div style="border-bottom: 1px solid #4B5563; width: 80%; margin: 0 auto 5px auto;"></div>
-                                    <div style="color: #6B7280; font-size: 8pt;">Assinatura</div>
-                                </td>
-                                <td style="width: 4mm;"></td>
-                                <td style="width: 88mm; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 15px 10px; text-align: center; vertical-align: top;">
-                                    <div style="color: #6B7280; font-size: 8pt; font-weight: bold; text-transform: uppercase; margin-bottom: 60px;">RESPONSÁVEL TÉCNICO</div>
-                                    <div style="border-bottom: 1px solid #4B5563; width: 80%; margin: 0 auto 5px auto;"></div>
-                                    <div style="color: #6B7280; font-size: 8pt;">Assinatura</div>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <div style="border: 1px solid #E5E7EB; background: white; padding: 15px; margin-bottom: 15px;">
-                        <div style="color: #EA580C; font-size: 10pt; font-weight: bold; text-transform: uppercase;">OBSERVAÇÕES</div>
-                        <div style="border-bottom: 2pt solid #F3F4F6; margin: 6px 0 10px 0;"></div>
-                        <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
-                        <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
-                        <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
-                        <div style="border-bottom: 0.5pt solid #D1D5DB; margin-top: 25px;"></div>
-                    </div>
-
-                    <div style="border-top: 1px solid #E5E7EB; padding-top: 10px; text-align: center; color: #9CA3AF; font-size: 8pt; line-height: 1.3;">
-                        Documento gerado eletronicamente pelo Sistema de Solicitações Arcaika Engenharia.<br>
-                        Gerado em ${dateStr} às ${timeStr}.
-                    </div>
-
-                </div>
-            `;
-
-            const opt = { 
-                margin: 15, 
-                filename: `OS_${safeOS}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
+            // --- 3. CONSTRUÇÃO ESTRUTURAL DO PDF ---
+            const layoutBordas = {
+                hLineWidth: () => 1, vLineWidth: () => 1,
+                hLineColor: () => '#E5E7EB', vLineColor: () => '#E5E7EB'
             };
-            
-            await html2pdf().set(opt).from(element).save();
+
+            const docDefinition = {
+                pageSize: 'A4',
+                pageMargins: [40, 40, 40, 60],
+                defaultStyle: { font: 'Roboto', lineHeight: 1.2 },
+                footer: function(currentPage, pageCount) {
+                    return {
+                        stack: [
+                            { canvas: [{ type: 'line', x1: 40, y1: 0, x2: 555, y2: 0, lineWidth: 1, lineColor: '#E5E7EB' }], margin: [0, 0, 0, 10] },
+                            { text: 'Documento gerado eletronicamente pelo Sistema de Solicitações Arcaika Engenharia.', alignment: 'center', fontSize: 8, color: '#9CA3AF', margin: [0, 0, 0, 2] },
+                            { text: `Gerado em ${dateStr} às ${timeStr} - Página ${currentPage} de ${pageCount}`, alignment: 'center', fontSize: 8, color: '#9CA3AF' }
+                        ]
+                    };
+                },
+                content: [
+                    // CABEÇALHO
+                    {
+                        columns: [
+                            logoData 
+                                ? { image: logoData, fit: [150, 60], width: '*' }
+                                : { text: 'ARCAIKA ENGENHARIA', fontSize: 14, bold: true, color: '#111827', width: '*', margin: [0, 10, 0, 0] },
+                            { text: 'ARCAIKA ENGENHARIA LTDA\nCNPJ: 42.907.720/0001-85\nAl. Botafogo, 174 - Qd 77, L 11 - St. Central\nGoiânia - GO, 74030-020\nTel: (62) 99616-4188', alignment: 'right', fontSize: 9, color: '#4B5563', width: '*' }
+                        ],
+                        margin: [0, 0, 0, 10]
+                    },
+                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 2, lineColor: '#F97316' }], margin: [0, 0, 0, 15] },
+
+                    // TÍTULO DA OS
+                    {
+                        table: {
+                            widths: ['*', 'auto'],
+                            body: [
+                                [
+                                    { text: `ORDEM DE SERVIÇO #${safeOS}`, fontSize: 16, bold: true, color: 'white', border: [false, false, false, false], margin: [10, 8] },
+                                    { text: `Data: ${dateStr}`, fontSize: 10, bold: true, color: 'white', alignment: 'right', border: [false, false, false, false], margin: [10, 12] }
+                                ]
+                            ]
+                        },
+                        layout: { defaultBorder: false, fillColor: '#F97316' },
+                        margin: [0, 0, 0, 15]
+                    },
+
+                    // CARDS LOCAL E SOLICITANTE
+                    {
+                        columnGap: 15,
+                        columns: [
+                            {
+                                width: '50%',
+                                table: {
+                                    widths: ['*'],
+                                    body: [[{
+                                        stack: [
+                                            { text: 'LOCAL', fontSize: 10, bold: true, color: '#EA580C' },
+                                            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 230, y2: 0, lineWidth: 1, lineColor: '#E5E7EB' }], margin: [0, 4, 0, 8] },
+                                            { text: 'SECRETARIA', fontSize: 8, bold: true, color: '#6B7280', margin: [0, 0, 0, 2] },
+                                            { text: localNome.toUpperCase(), fontSize: 11, bold: true, color: '#111827', margin: [0, 0, 0, 8] },
+                                            { text: 'CIDADE / UF', fontSize: 8, bold: true, color: '#6B7280', margin: [0, 0, 0, 2] },
+                                            { text: `${localCidade.toUpperCase()} - ${localEstado.toUpperCase()}`, fontSize: 11, bold: true, color: '#111827', margin: [0, 0, 0, 8] },
+                                            { text: 'UNIDADE / SETOR', fontSize: 8, bold: true, color: '#6B7280', margin: [0, 0, 0, 2] },
+                                            { text: unidadeNome.toUpperCase(), fontSize: 11, bold: true, color: '#111827' }
+                                        ],
+                                        fillColor: '#F9FAFB', margin: [10, 10, 10, 10]
+                                    }]]
+                                }, layout: layoutBordas
+                            },
+                            {
+                                width: '50%',
+                                table: {
+                                    widths: ['*'],
+                                    body: [[{
+                                        stack: [
+                                            { text: 'SOLICITANTE', fontSize: 10, bold: true, color: '#EA580C' },
+                                            { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 230, y2: 0, lineWidth: 1, lineColor: '#E5E7EB' }], margin: [0, 4, 0, 8] },
+                                            { text: 'NOME COMPLETO', fontSize: 8, bold: true, color: '#6B7280', margin: [0, 0, 0, 2] },
+                                            { text: String(req.nome || '').toUpperCase(), fontSize: 11, bold: true, color: '#111827', margin: [0, 0, 0, 8] },
+                                            { text: 'E-MAIL', fontSize: 8, bold: true, color: '#6B7280', margin: [0, 0, 0, 2] },
+                                            { text: String(req.email || ''), fontSize: 11, bold: true, color: '#111827', margin: [0, 0, 0, 8] },
+                                            { text: 'TELEFONE', fontSize: 8, bold: true, color: '#6B7280', margin: [0, 0, 0, 2] },
+                                            { text: String(req.telefone || ''), fontSize: 11, bold: true, color: '#111827' }
+                                        ],
+                                        fillColor: '#F9FAFB', margin: [10, 10, 10, 10]
+                                    }]]
+                                }, layout: layoutBordas
+                            }
+                        ],
+                        margin: [0, 0, 0, 15]
+                    },
+
+                    // DETALHES DA SOLICITAÇÃO
+                    {
+                        table: {
+                            widths: ['*'],
+                            body: [[{
+                                stack: [
+                                    { text: 'DETALHES DA SOLICITAÇÃO', fontSize: 10, bold: true, color: '#EA580C' },
+                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 485, y2: 0, lineWidth: 2, lineColor: '#F3F4F6' }], margin: [0, 6, 0, 10] },
+                                    {
+                                        columns: [
+                                            {
+                                                stack: [
+                                                    { text: 'ASSUNTO', fontSize: 8, bold: true, color: '#6B7280', margin: [0, 0, 0, 2] },
+                                                    { text: String(req.assunto || '').toUpperCase(), fontSize: 11, bold: true, color: '#111827' }
+                                                ], width: '*'
+                                            },
+                                            {
+                                                stack: [
+                                                    { text: 'PRIORIDADE', fontSize: 8, bold: true, color: '#6B7280', margin: [0, 0, 0, 4], alignment: 'right' },
+                                                    {
+                                                        table: { widths: [90], body: [[{ text: priText, fontSize: 10, bold: true, color: priColorText, alignment: 'center', margin: [0, 4, 0, 4] }]] },
+                                                        layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => priColorText, vLineColor: () => priColorText, fillColor: priColorBg },
+                                                        alignment: 'right'
+                                                    }
+                                                ], width: 110
+                                            }
+                                        ], margin: [0, 0, 0, 15]
+                                    },
+                                    { text: 'DESCRIÇÃO DO PROBLEMA / SERVIÇO', fontSize: 9, bold: true, color: '#4B5563', margin: [0, 0, 0, 2] },
+                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 485, y2: 0, lineWidth: 1, lineColor: '#F3F4F6' }], margin: [0, 0, 0, 6] },
+                                    {
+                                        table: { widths: ['*'], body: [[{ text: String(req.descricao || ''), fontSize: 10, color: '#374151', margin: [8, 8, 8, 8], lineHeight: 1.4 }]] },
+                                        layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => '#F3F4F6', vLineColor: () => '#F3F4F6', fillColor: '#F9FAFB' },
+                                        margin: [0, 0, 0, req.informacoes_adicionais ? 15 : 0]
+                                    },
+                                    ...(req.informacoes_adicionais ? [
+                                        { text: 'INFORMAÇÕES ADICIONAIS', fontSize: 9, bold: true, color: '#4B5563', margin: [0, 0, 0, 2] },
+                                        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 485, y2: 0, lineWidth: 1, lineColor: '#F3F4F6' }], margin: [0, 0, 0, 6] },
+                                        {
+                                            table: { widths: ['*'], body: [[{ text: String(req.informacoes_adicionais || ''), fontSize: 10, color: '#374151', margin: [8, 8, 8, 8], lineHeight: 1.4 }]] },
+                                            layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => '#FEF3C7', vLineColor: () => '#FEF3C7', fillColor: '#FFFBEB' }
+                                        }
+                                    ] : [])
+                                ], margin: [15, 15, 15, 15]
+                            }]]
+                        }, layout: layoutBordas, margin: [0, 0, 0, 15]
+                    },
+
+                    // ASSINATURAS
+                    {
+                        unbreakable: true, 
+                        table: {
+                            widths: ['*'],
+                            body: [[{
+                                stack: [
+                                    { text: 'ASSINATURAS', fontSize: 10, bold: true, color: '#EA580C' },
+                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 485, y2: 0, lineWidth: 2, lineColor: '#F3F4F6' }], margin: [0, 6, 0, 10] },
+                                    {
+                                        columnGap: 15,
+                                        columns: [
+                                            {
+                                                table: { widths: ['*'], body: [[{ stack: [
+                                                    { text: 'GESTOR DO CONTRATO', fontSize: 8, bold: true, color: '#6B7280', alignment: 'center', margin: [0, 0, 0, 50] },
+                                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 180, y2: 0, lineWidth: 1, lineColor: '#4B5563' }], alignment: 'center', margin: [0, 0, 0, 5] },
+                                                    { text: 'Assinatura', fontSize: 8, color: '#6B7280', alignment: 'center' }
+                                                ], fillColor: '#F9FAFB', margin: [10, 15, 10, 15] }]] }, layout: layoutBordas
+                                            },
+                                            {
+                                                table: { widths: ['*'], body: [[{ stack: [
+                                                    { text: 'RESPONSÁVEL TÉCNICO', fontSize: 8, bold: true, color: '#6B7280', alignment: 'center', margin: [0, 0, 0, 50] },
+                                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 180, y2: 0, lineWidth: 1, lineColor: '#4B5563' }], alignment: 'center', margin: [0, 0, 0, 5] },
+                                                    { text: 'Assinatura', fontSize: 8, color: '#6B7280', alignment: 'center' }
+                                                ], fillColor: '#F9FAFB', margin: [10, 15, 10, 15] }]] }, layout: layoutBordas
+                                            }
+                                        ]
+                                    }
+                                ], margin: [15, 15, 15, 15]
+                            }]]
+                        }, layout: layoutBordas, margin: [0, 0, 0, 15]
+                    },
+
+                    // OBSERVAÇÕES
+                    {
+                        unbreakable: true,
+                        table: {
+                            widths: ['*'],
+                            body: [[{
+                                stack: [
+                                    { text: 'OBSERVAÇÕES', fontSize: 10, bold: true, color: '#EA580C' },
+                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 485, y2: 0, lineWidth: 2, lineColor: '#F3F4F6' }], margin: [0, 6, 0, 20] },
+                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 485, y2: 0, lineWidth: 0.5, lineColor: '#D1D5DB' }], margin: [0, 0, 0, 25] },
+                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 485, y2: 0, lineWidth: 0.5, lineColor: '#D1D5DB' }], margin: [0, 0, 0, 25] },
+                                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 485, y2: 0, lineWidth: 0.5, lineColor: '#D1D5DB' }] }
+                                ], margin: [15, 15, 15, 15]
+                            }]]
+                        }, layout: layoutBordas
+                    }
+                ]
+            };
+
+            // Geração e Download via pdfMake
+            pdfMake.createPdf(docDefinition).download(`OS_${safeOS}.pdf`);
             UI.showToast("PDF gerado com sucesso!", "success");
 
         } catch (error) {
-            UI.showToast("Erro ao gerar o documento PDF.", "error");
+            console.error("Erro ao gerar PDF:", error);
+            UI.showToast("Erro ao gerar o PDF.", "error");
         } finally {
             UI.setButtonLoading('btn-download-pdf', false, originalText);
         }

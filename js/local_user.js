@@ -577,7 +577,7 @@ export class LocalUserController {
                             body: [
                                 [
                                     { text: `ORDEM DE SERVIÇO #${safeOS}`, fontSize: 16, bold: true, color: 'white', border: [false, false, false, false], margin: [10, 8] },
-                                    { text: `Data: ${dateStr}`, fontSize: 10, bold: true, color: 'white', alignment: 'right', border: [false, false, false, false], margin: [10, 12] }
+                                    { text: `Data: ${creationDateStr}`, fontSize: 10, bold: true, color: 'white', alignment: 'right', border: [false, false, false, false], margin: [10, 12] }
                                 ]
                             ]
                         },

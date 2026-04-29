@@ -507,9 +507,14 @@ export class LocalUserController {
 
             // --- 2. PREPARAÇÃO DOS DADOS ---
             const safeOS = String(req.ordem_de_servico || req.ordem_servico || '0').padStart(4, '0');
-            const dataHora = new Date();
-            const dateStr = dataHora.toLocaleDateString('pt-BR');
-            const timeStr = dataHora.toLocaleTimeString('pt-BR', { hour12: false });
+            const dataHoraPdf = new Date();
+            const genDateStr = dataHoraPdf.toLocaleDateString('pt-BR');
+            const genTimeStr = dataHoraPdf.toLocaleTimeString('pt-BR', { hour12: false });
+
+            // Data de criação da solicitação em Horário de Brasília
+            const dataCriacao = req.data_criacao ? new Date(req.data_criacao) : dataHoraPdf;
+            const creationDateStr = dataCriacao.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+            const creationTimeStr = dataCriacao.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false });
 
             let localData = req.local;
             if (!localData && req.local_id) {
@@ -540,14 +545,15 @@ export class LocalUserController {
 
             const docDefinition = {
                 pageSize: 'A4',
-                pageMargins: [40, 40, 40, 60],
+                pageMargins: [40, 40, 40, 65],
                 defaultStyle: { font: 'Roboto', lineHeight: 1.2 },
                 footer: function(currentPage, pageCount) {
                     return {
                         stack: [
                             { canvas: [{ type: 'line', x1: 40, y1: 0, x2: 555, y2: 0, lineWidth: 1, lineColor: '#E5E7EB' }], margin: [0, 0, 0, 10] },
                             { text: 'Documento gerado eletronicamente pelo Sistema de Solicitações Arcaika Engenharia.', alignment: 'center', fontSize: 8, color: '#9CA3AF', margin: [0, 0, 0, 2] },
-                            { text: `Gerado em ${dateStr} às ${timeStr} - Página ${currentPage} de ${pageCount}`, alignment: 'center', fontSize: 8, color: '#9CA3AF' }
+                            { text: `Solicitação criada em ${creationDateStr} às ${creationTimeStr} (Horário de Brasília)`, alignment: 'center', fontSize: 8, color: '#9CA3AF', margin: [0, 0, 0, 2] },
+                            { text: `PDF gerado em ${genDateStr} às ${genTimeStr} - Página ${currentPage} de ${pageCount}`, alignment: 'center', fontSize: 8, color: '#9CA3AF' }
                         ]
                     };
                 },
